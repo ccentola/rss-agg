@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/ccentola/rss-agg/internal/database"
 	"github.com/go-chi/chi"
@@ -39,9 +40,13 @@ func main() {
 		log.Fatal("Can't connect to db...")
 	}
 
+	db := database.New(conn)
 	apiCfg := apiConfig{
-		DB: database.New(conn),
+		DB: db,
 	}
+
+	// start scraper
+	go startScraping(db, 10, time.Minute)
 
 	router := chi.NewRouter()
 
@@ -69,6 +74,8 @@ func main() {
 	v1Router.Get("/feed_follows", apiCfg.middlewareAuth(apiCfg.handlerGetFeedFollows))
 	v1Router.Delete("/feed_follows/{feedFollowID}", apiCfg.middlewareAuth(apiCfg.handlerDeleteFeedFollow))
 
+	// posts
+	v1Router.Get("/posts", apiCfg.middlewareAuth(apiCfg.handlerPostsGet))
 	router.Mount("/v1", v1Router)
 
 	srv := &http.Server{
